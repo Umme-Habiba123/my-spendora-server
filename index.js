@@ -11,7 +11,7 @@ const port = process.env.PORT || 5000;
 /* ── Middleware ── */
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5174",
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
     methods: ["GET", "POST", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type"],
   }),
@@ -45,7 +45,7 @@ async function run() {
 
     /* ── TEST ROUTE ── */
     app.get("/", (req, res) => {
-      res.json({ message: "Expense Tracker Server Running ✅" }) ;
+      res.json({ message: "Expense Tracker Server Running ✅" });
     });
 
     /* ─────────────────────────────────────────────
@@ -206,6 +206,59 @@ async function run() {
         res.json(
           result || { totalIncome: 0, totalExpense: 0, balance: 0, count: 0 },
         );
+      }),
+    );
+
+    // OverView Get---------
+    app.get(
+      "/expenses/recent",
+      asyncHandler(async (req, res) => {
+        const { limit = 5, email } = req.query;
+
+        const filter = {};
+        if (email) filter.email = email;
+
+        const data = await expensesCollection
+          .find(filter)
+          .sort({ createdAt: -1 })
+          .limit(Number(limit))
+          .toArray();
+
+        res.json(data);
+      }),
+    );
+
+    //Overview monthly---------
+    app.get(
+      "/expenses/summary/monthly",
+      asyncHandler(async (req, res) => {
+        const { email } = req.query;
+
+        const start = new Date();
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+
+        const filter = {
+          createdAt: { $gte: start },
+        };
+
+        if (email) filter.email = email;
+
+        const data = await expensesCollection.find(filter).toArray();
+
+        let totalIncome = 0;
+        let totalExpense = 0;
+
+        data.forEach((t) => {
+          if (t.type === "income") totalIncome += Number(t.amt);
+          else totalExpense += Number(t.amt);
+        });
+
+        res.json({
+          totalIncome,
+          totalExpense,
+          count: data.length,
+        });
       }),
     );
 
